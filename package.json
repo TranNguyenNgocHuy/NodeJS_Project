@@ -1,0 +1,28 @@
+{
+  "name": "project",
+  "version": "1.0.0",
+  "description": "",
+  "main": "app.js",
+  "scripts": {
+    "start:dev": "SET NODE_ENV=development&&nodemon server.js",
+    "start:prod": "SET NODE_ENV=production&&nodemon server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TranNguyenNgocHuy/NodeJS_Project.git"
+  },
+  "author": "Tran Huy",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/TranNguyenNgocHuy/NodeJS_Project/issues"
+  },
+  "homepage": "https://github.com/TranNguyenNgocHuy/NodeJS_Project#readme",
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2"
+  },
+  "devDependencies": {
+    "morgan": "^1.10.0",
+    "nodemon": "^3.1.4"
+  }
+}
