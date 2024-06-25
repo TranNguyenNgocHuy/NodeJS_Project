@@ -1,90 +1,111 @@
-const fs = require('fs');
+const Product = require('../models/productModel');
 
-const products = JSON.parse(
-  fs.readFileSync(`${__dirname}/../dev-data/data/tours-simple.json`)
-);
+exports.getAllProducts = async (req, res) => {
+  try {
+    // BUILD QUERY
+    // 1A) Filltering
+    const queryObj = { ...req.query };
+    const excludedFields = ['page', 'sort', 'limit', 'fields'];
+    excludedFields.forEach(el => delete queryObj[el]);
 
-exports.checkID = (req, res, next, val) => {
-  console.log(`Product id is: ${val}`);
+    //1B) Advanced filltering
+    let queryStr = JSON.stringify(queryObj);
+    queryStr = queryStr.replace(/\b(gte|gt|lte|lt)\b/g, match => `$${match}`);
+    console.log(JSON.parse(queryStr));
 
-  if (req.params.id * 1 > products.length - 1) {
-    return res.status(404).json({
+    const query = Product.find(JSON.parse(queryStr));
+
+    // const query = Product.find()
+    //   .where('brand')
+    //   .equals(req.query.brand);
+
+    // EXECUTE QUERY
+    const products = await query;
+
+    res.status(200).json({
+      status: 'success',
+      results: products.length,
+      data: {
+        products
+      }
+    });
+  } catch (err) {
+    res.status(404).json({
       status: 'fail',
-      message: 'Invalid ID'
+      message: err
     });
   }
-  next();
 };
 
-exports.checkBody = (req, res, next) => {
-  if (!req.body.name || !req.body.price) {
-    return res.status(400).json({
+exports.getProduct = async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id);
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        product
+      }
+    });
+  } catch (err) {
+    res.status(404).json({
       status: 'fail',
-      message: 'Missing name or price'
+      message: err
     });
   }
-  next();
 };
 
-exports.getAllProducts = (req, res) => {
-  console.log(req.requestTime);
+exports.createProduct = async (req, res) => {
+  try {
+    const newProduct = await Product.create(req.body);
 
-  res.status(200).json({
-    status: 'success',
-    requestedAt: req.requestTime,
-    results: products.length,
-    data: {
-      products
-    }
-  });
+    res.status(201).json({
+      status: 'success',
+      data: {
+        product: newProduct
+      }
+    });
+  } catch (err) {
+    res.status(400).json({
+      status: 'fail',
+      message: 'Invalid data sent!'
+    });
+  }
 };
 
-exports.getProduct = (req, res) => {
-  console.log(req.params);
-  const id = req.params.id * 1;
+exports.updateProduct = async (req, res) => {
+  try {
+    const product = await Product.findByIdAndUpdate(req.params.id, req.body, {
+      new: true,
+      runValidators: true
+    });
 
-  const product = products.find(el => el.id === id);
-
-  res.status(200).json({
-    status: 'success',
-    data: {
-      product
-    }
-  });
+    res.status(200).json({
+      status: 'success',
+      data: {
+        product
+      }
+    });
+  } catch (err) {
+    res.status(404).json({
+      status: 'fail',
+      message: 'Invalid data sent!'
+    });
+  }
 };
 
-exports.createProduct = (req, res) => {
-  const newId = products[products.length - 1].id + 1;
-  const newProduct = Object.assign({ id: newId }, req.body);
+exports.deleteProduct = async (req, res) => {
+  try {
+    await Product.findByIdAndDelete(req.params.id);
 
-  products.push(newProduct);
-
-  fs.writeFile(
-    `${__dirname}/dev-data/data/tours-simple.json`,
-    JSON.stringify(products),
-    err => {
-      res.status(201).json({
-        status: 'success',
-        data: {
-          product: newProduct
-        }
-      });
-    }
-  );
-};
-
-exports.updateProduct = (req, res) => {
-  res.status(200).json({
-    status: 'success',
-    data: {
-      product: '<Updated product here...>'
-    }
-  });
-};
-
-exports.deleteProduct = (req, res) => {
-  res.status(204).json({
-    status: 'success',
-    data: null
-  });
+    res.status(204).json({
+      status: 'success',
+      data: null
+    });
+  } catch (err) {
+    res.status(404).json({
+      status: 'fail',
+      message: err
+    });
+  }
 };
