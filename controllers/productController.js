@@ -1,26 +1,21 @@
 const Product = require('../models/productModel');
+const APIFeatures = require('../utils/apiFeatures');
+
+exports.aliasTopHighestPrice = (req, res, next) => {
+  req.query.limit = '5';
+  req.query.sort = '-price';
+  req.query.fields = 'name,price,brand,description,ratingsAverage';
+  next();
+};
 
 exports.getAllProducts = async (req, res) => {
   try {
-    // BUILD QUERY
-    // 1A) Filltering
-    const queryObj = { ...req.query };
-    const excludedFields = ['page', 'sort', 'limit', 'fields'];
-    excludedFields.forEach(el => delete queryObj[el]);
-
-    //1B) Advanced filltering
-    let queryStr = JSON.stringify(queryObj);
-    queryStr = queryStr.replace(/\b(gte|gt|lte|lt)\b/g, match => `$${match}`);
-    console.log(JSON.parse(queryStr));
-
-    const query = Product.find(JSON.parse(queryStr));
-
-    // const query = Product.find()
-    //   .where('brand')
-    //   .equals(req.query.brand);
-
-    // EXECUTE QUERY
-    const products = await query;
+    const features = new APIFeatures(Product.find(), req.query)
+      .fillter()
+      .sort()
+      .limitFields()
+      .paginate();
+    const products = await features.query;
 
     res.status(200).json({
       status: 'success',
@@ -68,7 +63,7 @@ exports.createProduct = async (req, res) => {
   } catch (err) {
     res.status(400).json({
       status: 'fail',
-      message: 'Invalid data sent!'
+      message: err
     });
   }
 };
@@ -101,6 +96,47 @@ exports.deleteProduct = async (req, res) => {
     res.status(204).json({
       status: 'success',
       data: null
+    });
+  } catch (err) {
+    res.status(404).json({
+      status: 'fail',
+      message: err
+    });
+  }
+};
+
+exports.getProductStats = async (req, res) => {
+  try {
+    const stats = await Product.aggregate([
+      {
+        $match: {
+          ratingsAverage: { $gte: 4.7 }
+        }
+      },
+      {
+        $group: {
+          // _id: its mean group by ex: _id: null || _id: '$brand'
+          _id: { $toUpper: '$name' },
+          numProducts: { $sum: 1 },
+          numRating: { $sum: '$ratingsQuantity' },
+          avgRating: { $avg: '$ratingsAverage' },
+          avgPrice: { $avg: '$price' },
+          minPrice: { $min: '$price' },
+          maxPrice: { $max: '$price' }
+        }
+      },
+      {
+        $sort: {
+          avgPrice: 1
+        }
+      }
+    ]);
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        stats
+      }
     });
   } catch (err) {
     res.status(404).json({
