@@ -1,5 +1,7 @@
 const Product = require('../models/productModel');
 const APIFeatures = require('../utils/apiFeatures');
+const AppError = require('../utils/appError');
+const catchErrorAsync = require('../utils/catchErrorAsync');
 
 exports.aliasTopHighestPrice = (req, res, next) => {
   req.query.limit = '5';
@@ -8,140 +10,109 @@ exports.aliasTopHighestPrice = (req, res, next) => {
   next();
 };
 
-exports.getAllProducts = async (req, res) => {
-  try {
-    const features = new APIFeatures(Product.find(), req.query)
-      .fillter()
-      .sort()
-      .limitFields()
-      .paginate();
-    const products = await features.query;
+exports.getAllProducts = catchErrorAsync(async (req, res, next) => {
+  const features = new APIFeatures(Product.find(), req.query)
+    .fillter()
+    .sort()
+    .limitFields()
+    .paginate();
+  const products = await features.query;
+  res.status(200).json({
+    status: 'success',
+    results: products.length,
+    data: {
+      products
+    }
+  });
+});
 
-    res.status(200).json({
-      status: 'success',
-      results: products.length,
-      data: {
-        products
-      }
-    });
-  } catch (err) {
-    res.status(404).json({
-      status: 'fail',
-      message: err
-    });
+exports.getProduct = catchErrorAsync(async (req, res, next) => {
+  const product = await Product.findById(req.params.id);
+
+  if (!product) {
+    return next(new AppError('No product found with that ID', 404));
   }
-};
 
-exports.getProduct = async (req, res) => {
-  try {
-    const product = await Product.findById(req.params.id);
+  res.status(200).json({
+    status: 'success',
+    data: {
+      product
+    }
+  });
+});
 
-    res.status(200).json({
-      status: 'success',
-      data: {
-        product
-      }
-    });
-  } catch (err) {
-    res.status(404).json({
-      status: 'fail',
-      message: err
-    });
+exports.createProduct = catchErrorAsync(async (req, res, next) => {
+  const newProduct = await Product.create(req.body);
+
+  res.status(201).json({
+    status: 'success',
+    data: {
+      product: newProduct
+    }
+  });
+});
+
+exports.updateProduct = catchErrorAsync(async (req, res, next) => {
+  const product = await Product.findByIdAndUpdate(req.params.id, req.body, {
+    new: true,
+    runValidators: true
+  });
+
+  if (!product) {
+    return next(new AppError('No product found with that ID', 404));
   }
-};
 
-exports.createProduct = async (req, res) => {
-  try {
-    const newProduct = await Product.create(req.body);
+  res.status(200).json({
+    status: 'success',
+    data: {
+      product
+    }
+  });
+});
 
-    res.status(201).json({
-      status: 'success',
-      data: {
-        product: newProduct
-      }
-    });
-  } catch (err) {
-    res.status(400).json({
-      status: 'fail',
-      message: err
-    });
+exports.deleteProduct = catchErrorAsync(async (req, res, next) => {
+  const product = await Product.findByIdAndDelete(req.params.id);
+
+  if (!product) {
+    return next(new AppError('No product found with that ID', 404));
   }
-};
 
-exports.updateProduct = async (req, res) => {
-  try {
-    const product = await Product.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-      runValidators: true
-    });
+  res.status(204).json({
+    status: 'success',
+    data: null
+  });
+});
 
-    res.status(200).json({
-      status: 'success',
-      data: {
-        product
+exports.getProductStats = catchErrorAsync(async (req, res, next) => {
+  const stats = await Product.aggregate([
+    {
+      $match: {
+        ratingsAverage: { $gte: 4.7 }
       }
-    });
-  } catch (err) {
-    res.status(404).json({
-      status: 'fail',
-      message: 'Invalid data sent!'
-    });
-  }
-};
-
-exports.deleteProduct = async (req, res) => {
-  try {
-    await Product.findByIdAndDelete(req.params.id);
-
-    res.status(204).json({
-      status: 'success',
-      data: null
-    });
-  } catch (err) {
-    res.status(404).json({
-      status: 'fail',
-      message: err
-    });
-  }
-};
-
-exports.getProductStats = async (req, res) => {
-  try {
-    const stats = await Product.aggregate([
-      {
-        $match: {
-          ratingsAverage: { $gte: 4.7 }
-        }
-      },
-      {
-        $group: {
-          // _id: its mean group by ex: _id: null || _id: '$brand'
-          _id: { $toUpper: '$name' },
-          numProducts: { $sum: 1 },
-          numRating: { $sum: '$ratingsQuantity' },
-          avgRating: { $avg: '$ratingsAverage' },
-          avgPrice: { $avg: '$price' },
-          minPrice: { $min: '$price' },
-          maxPrice: { $max: '$price' }
-        }
-      },
-      {
-        $sort: {
-          avgPrice: 1
-        }
+    },
+    {
+      $group: {
+        // _id: its mean group by ex: _id: null || _id: '$brand'
+        _id: { $toUpper: '$name' },
+        numProducts: { $sum: 1 },
+        numRating: { $sum: '$ratingsQuantity' },
+        avgRating: { $avg: '$ratingsAverage' },
+        avgPrice: { $avg: '$price' },
+        minPrice: { $min: '$price' },
+        maxPrice: { $max: '$price' }
       }
-    ]);
-
-    res.status(200).json({
-      status: 'success',
-      data: {
-        stats
+    },
+    {
+      $sort: {
+        avgPrice: 1
       }
-    });
-  } catch (err) {
-    res.status(404).json({
-      status: 'fail',
-      message: err
-    });
-  }
-};
+    }
+  ]);
+
+  res.status(200).json({
+    status: 'success',
+    data: {
+      stats
+    }
+  });
+});
