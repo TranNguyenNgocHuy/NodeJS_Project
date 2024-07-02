@@ -68,6 +68,10 @@ const productSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
       select: false
+    },
+    createBy: {
+      type: mongoose.Schema.ObjectId,
+      ref: 'User'
     }
   },
   {
@@ -87,9 +91,25 @@ productSchema.virtual('discountPercent').get(function() {
   return discountPercent;
 });
 
-// DOCUMENT MIDDLEWARE: runs before .save() and .create()
+// Virtual populate
+productSchema.virtual('reviews', {
+  ref: 'Review',
+  foreignField: 'product',
+  localField: '_id'
+});
+
+// DOCUMENT MIDDLEWARE: runs before .save and .create
 productSchema.pre('save', function(next) {
   console.log(this);
+  next();
+});
+
+// QUERY MIDDLEWARE
+productSchema.pre(/^find/, function(next) {
+  this.populate({
+    path: 'createBy',
+    select: '-__v -passwordChangedAt'
+  });
   next();
 });
 

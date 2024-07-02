@@ -97,7 +97,6 @@ exports.authenticated = catchErrorAsync(async (req, res, next) => {
 });
 
 exports.permission = (...roles) => {
-  console.log('hello');
   return (req, res, next) => {
     if (!roles.includes(req.user.role)) {
       return next(
